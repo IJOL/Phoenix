@@ -4288,7 +4288,10 @@ class UltimateListLineData(object):
 
         if not self._owner.HasAGWFlag(ULC_BORDER_SELECT) and not self._owner.HasAGWFlag(ULC_NO_FULL_ROW_SELECT):
             if highlighted:
-                if wx.Platform == "__WXMAC__":
+                # Check if we have custom highlight text color
+                if hasattr(self._owner, '_highlightTextColour') and self._owner._highlightTextColour:
+                    colText = self._owner._highlightTextColour
+                elif wx.Platform == "__WXMAC__":
                     if self._owner.HasFocus():
                         colText = wx.WHITE
                     else:
@@ -4496,13 +4499,20 @@ class UltimateListLineData(object):
                     self.DrawVistaRectangle(dc, paintRect, hasFocus)
                 else:
                     if highlighted:
-                        flags = wx.CONTROL_SELECTED
-                        if hasFocus:
-                            flags |= wx.CONTROL_FOCUSED
-                        if current:
-                            flags |= wx.CONTROL_CURRENT
+                        # Check if we have custom colors set
+                        if hasattr(self._owner, '_customHighlightBrush') and self._owner._customHighlightBrush:
+                            # Use custom colors instead of native renderer
+                            dc.SetBrush(self._owner.GetHighlightBrush())
+                            dc.DrawRectangle(paintRect)
+                        else:
+                            # Use native renderer
+                            flags = wx.CONTROL_SELECTED
+                            if hasFocus:
+                                flags |= wx.CONTROL_FOCUSED
+                            if current:
+                                flags |= wx.CONTROL_CURRENT
 
-                        wx.RendererNative.Get().DrawItemSelectionRect(self._owner, dc, paintRect, flags)
+                            wx.RendererNative.Get().DrawItemSelectionRect(self._owner, dc, paintRect, flags)
                     else:
                         dc.DrawRectangle(paintRect)
 
@@ -6039,6 +6049,10 @@ class UltimateListMainWindow(wx.ScrolledWindow):
         backcolour = wx.Colour(backcolour[0], backcolour[1], backcolour[2])
         self._highlightUnfocusedBrush2 = wx.Brush(backcolour)
 
+        # Initialize custom color flags and text color
+        self._customHighlightBrush = False
+        self._highlightTextColour = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT)
+
         self.SetScrollbars(0, 0, 0, 0, 0, 0)
 
         attr = wx.ListCtrl.GetClassDefaultAttributes()
@@ -6105,7 +6119,7 @@ class UltimateListMainWindow(wx.ScrolledWindow):
         self._disabledColour = wx.Colour(180, 180, 180)
 
         # Gradient selection colours
-        self._firstcolour = colour= wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
+        self._firstcolour = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
         self._secondcolour = wx.WHITE
         self._usegradients = False
         self._gradientstyle = 1   # Vertical Gradient
@@ -6413,6 +6427,38 @@ class UltimateListMainWindow(wx.ScrolledWindow):
         """ Returns the brush to use for the item highlighting. """
 
         return (self._hasFocus and [self._highlightBrush] or [self._highlightUnfocusedBrush])[0]
+
+    
+    def SetHighlightColour(self, colour):
+        """ 
+        Sets the colour to use for the item highlighting/selection.
+        
+        :param `colour`: a valid :class:`wx.Colour` instance.
+        """
+        
+        if colour is not None:
+            self._highlightBrush = wx.Brush(colour, wx.BRUSHSTYLE_SOLID)
+            self._highlightUnfocusedBrush = wx.Brush(colour, wx.BRUSHSTYLE_SOLID)
+            # Mark that we have custom colors to avoid native renderer
+            self._customHighlightBrush = True
+        else:
+            # Reset to system default
+            self._highlightBrush = wx.Brush(wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT), wx.BRUSHSTYLE_SOLID)
+            self._customHighlightBrush = False
+
+
+    def SetHighlightTextColour(self, colour):
+        """ 
+        Sets the text colour to use for highlighted/selected items.
+        
+        :param `colour`: a valid :class:`wx.Colour` instance.
+        """
+        
+        if colour is not None:
+            self._highlightTextColour = colour
+        else:
+            # Reset to system default
+            self._highlightTextColour = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT)
 
 
     # get the line data for the given index
@@ -13276,6 +13322,28 @@ class UltimateListCtrl(wx.Control):
         """ Returns the items disabled colour. """
 
         return self._mainWin.GetDisabledTextColour()
+
+
+    def SetHighlightColour(self, colour):
+        """
+        Sets the colour to use for the item highlighting/selection.
+        
+        :param `colour`: a valid :class:`wx.Colour` instance.
+        """
+        
+        if self._mainWin:
+            self._mainWin.SetHighlightColour(colour)
+
+
+    def SetHighlightTextColour(self, colour):
+        """
+        Sets the text colour to use for highlighted/selected items.
+        
+        :param `colour`: a valid :class:`wx.Colour` instance.
+        """
+        
+        if self._mainWin:
+            self._mainWin.SetHighlightTextColour(colour)
 
 
     def GetHyperTextFont(self):

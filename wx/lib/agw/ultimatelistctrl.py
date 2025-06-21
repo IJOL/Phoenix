@@ -358,7 +358,6 @@ ULC_HITTEST_ONITEMLABEL     = wx.LIST_HITTEST_ONITEMLABEL      # On the label (s
 ULC_HITTEST_ONITEMSTATEICON = wx.LIST_HITTEST_ONITEMSTATEICON  # On the state icon for a tree view item that is in a user-defined state.
 ULC_HITTEST_TOLEFT          = wx.LIST_HITTEST_TOLEFT           # To the left of the client area.
 ULC_HITTEST_TORIGHT         = wx.LIST_HITTEST_TORIGHT          # To the right of the client area.
-ULC_HITTEST_ONITEMCHECK     = 0x1000                           # On the checkbox (if any)
 
 ULC_HITTEST_ONITEM = ULC_HITTEST_ONITEMICON | ULC_HITTEST_ONITEMLABEL | ULC_HITTEST_ONITEMSTATEICON | ULC_HITTEST_ONITEMCHECK
 
@@ -10293,14 +10292,45 @@ class UltimateListMainWindow(wx.ScrolledWindow):
         self._lines.insert(id, line)
         self._dirty = True
 
+        # FIX 1: Actualizar SelectionStore correctamente cuando se inserta antes de elementos seleccionados
+        if hasattr(self, '_selStore') and self._selStore:
+            # Obtener lista de elementos seleccionados que necesitan ser desplazados
+            selected_indices = []
+            for i in range(count):  # usar count original antes de la inserción
+                if self._selStore.IsSelected(i) and i >= id:
+                    selected_indices.append(i)
+            
+            # Desplazar selecciones hacia abajo (+1)
+            for sel_idx in reversed(selected_indices):  # reversed para evitar conflictos
+                self._selStore.SelectItem(sel_idx, False)  # Deseleccionar posición antigua
+                self._selStore.SelectItem(sel_idx + 1, True)  # Seleccionar nueva posición
+
         # If an item is selected at or below the point of insertion, we need to
         # increment the member variables because the current row's index has gone
         # up by one
         if self.HasCurrent() and self._current >= id:
             self._current += 1
 
+        # FIX 2: Invalidar posiciones Y para que se recalculen correctamente
+        if id == 0:
+            # Cuando insertamos en posición 0, todas las líneas cambian de posición Y
+            for i in range(len(self._lines)):
+                self._lines[i].ResetDimensions()
+            # Forzar recálculo de líneas visibles
+            self.ResetVisibleLinesRange(True)
+
         self.SendNotify(id, wxEVT_COMMAND_LIST_INSERT_ITEM)
-        self.RefreshLines(id, self.GetItemCount() - 1)
+        
+        # FIX 3: Refresh optimizado para inserción en posición 0
+        if id == 0 and count > 0:
+            # Inserción en posición 0: solo refrescar área visible + margen
+            visible_from, visible_to = self.GetVisibleLinesRange()
+            # Refrescar desde 0 hasta un poco más del área visible
+            refresh_end = min(visible_to + 5, self.GetItemCount() - 1)
+            self.RefreshLines(0, refresh_end)
+        else:
+            # Comportamiento normal para otras posiciones
+            self.RefreshLines(id, self.GetItemCount() - 1)
 
 
     def InsertColumn(self, col, item):

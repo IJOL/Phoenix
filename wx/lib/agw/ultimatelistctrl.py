@@ -358,6 +358,7 @@ ULC_HITTEST_ONITEMLABEL     = wx.LIST_HITTEST_ONITEMLABEL      # On the label (s
 ULC_HITTEST_ONITEMSTATEICON = wx.LIST_HITTEST_ONITEMSTATEICON  # On the state icon for a tree view item that is in a user-defined state.
 ULC_HITTEST_TOLEFT          = wx.LIST_HITTEST_TOLEFT           # To the left of the client area.
 ULC_HITTEST_TORIGHT         = wx.LIST_HITTEST_TORIGHT          # To the right of the client area.
+ULC_HITTEST_ONITEMCHECK     = 0x1000                           # On the item checkbox (if any).
 
 ULC_HITTEST_ONITEM = ULC_HITTEST_ONITEMICON | ULC_HITTEST_ONITEMLABEL | ULC_HITTEST_ONITEMSTATEICON | ULC_HITTEST_ONITEMCHECK
 
